@@ -1,4 +1,4 @@
-# Books API Week 02 Spec - Version 1
+# Books API Week 02 Spec - Version 2
 
 ## Feature 1: Book CRUD Operations and Author References
 
@@ -206,3 +206,37 @@ Swagger must document every author route.
 
 ### Deployment Expectations
 After implementation, the author routes must work locally and from the deployed Render application. The deployed Swagger page at `/api-docs` must allow someone to test every author route from the browser.
+
+## Version 2 Additions (apply to both books and authors)
+
+### Validation Rules
+- `id` and `authorId` must be non-empty strings. If a request body contains an id that is not a string (for example an object or a number), return `400`.
+- `title` and `name` must be non-empty strings after trimming whitespace.
+- `birthYear` must be a whole number that is not in the future.
+- `publicationDate` must be a string in `YYYY-MM-DD` format (ISO 8601 date).
+- Only the fields in the data model are saved. Any extra fields in the request body are ignored.
+- On PUT, the `id` in the URL is used. Any `id` in the request body is ignored, so an id can never be changed.
+
+### Order of Checks
+Every route checks in this order and stops at the first problem:
+1. Validate the request body: `400`
+2. For routes with `:id`, check that the item exists: `404`
+3. Check the relationship and uniqueness rules:
+   - A book's `authorId` must match an existing author: `400`
+   - A new `id` must not already exist: `400`
+   - An author with books cannot be deleted: `409`
+4. Any unexpected error: `500`
+
+### Responses
+- Error responses always use the format `{ "message": "..." }`.
+- Error responses never include stack traces or raw database errors.
+- Successful responses may include MongoDB's `_id`. Clients should use the custom `id`.
+
+### Database Notes
+- Existing Week 01 book documents that use an `author` (name) field are updated to use `authorId`, and the `author` field is removed.
+- Create a unique index on `id` in both the `books` and `authors` collections so duplicate ids are rejected even if two requests arrive at the same time. A duplicate-key error from the database returns `400`.
+- Create an index on `books.authorId` so checking whether an author has books is fast.
+
+### Out of Scope for Week 2
+- Authentication and authorization. These routes are open to anyone. Authentication is added in a later week.
+- Pagination. `GET /books` and `GET /authors` return all documents.
